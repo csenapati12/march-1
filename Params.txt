@@ -1,0 +1,37 @@
+
+
+node () {
+      
+  	stage ('Code - Checkout') {
+ checkout([$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'GIT_LLOYD', url: 'https://github.gsissc.myatos.net/GB-LON-TMT-BNCSNexGen/nxgen_sdk_cs_dsa.git']]])	
+	    
+	}
+	 parameters([choice(choices: ['DSLink', 'DSAExtensions','NexgenUtils'], description: 'SELECT APP TO DEPLOY', name: 'APP_NAME')]
+ 
+    if("${params.APP_NAME}"=="DSLink") {	
+    stage ('dotnet-build') {	  
+      sh '''
+        cd $WORKSPACE/DSLink/
+         dotnet build DSLink.csproj -c:Release
+       '''
+  }
+   stage ('upload') {
+       withCredentials([usernamePassword(credentialsId: 'NEXUS_PUSH_ACCESS', passwordVariable: 'NEXUS_PASS', usernameVariable: 'NEXUS_USER')]) {
+               sh '''
+           cd $WORKSPACE/DSLink/bin/Release
+            zipLatest=*.nupkg
+            zipname=$(ls -a | grep '.*.nupkg')
+
+         curl -u   $NEXUS_USER:$NEXUS_PASS  -X PUT -v -include -F package=@${zipname} http://nxgennexushost.westeurope.cloudapp.azure.com:8081/repository/nxGen-nuget/
+ 
+          curl -v -u  $NEXUS_USER:$NEXUS_PASS  --upload-file ${zipLatest}  http://nxgennexushost.westeurope.cloudapp.azure.com:8081/repository/ApplicationRelease/ 
+     
+          
+         
+         '''
+   }
+    
+} 
+}
+
+  }
